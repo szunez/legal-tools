@@ -1,6 +1,8 @@
 # A Docker LAMP server and Excel tool
-A starter template if you want to get up and running quickly with php/mysql/apache in Docker
-The spreadsheet includesa  VBA macros for data processing from Harris County District Court records.  
+The server uses php/mysql/apache in Docker
+
+The spreadsheet includes a VBA macros for data processing from Harris County District Court records.  
+
 NOTE: This workflow was designed for Criminal offense tracking. The format for Civil cases is different regarding the number of data points.
 
 # starting
