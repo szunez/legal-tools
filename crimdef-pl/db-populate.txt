@@ -1,0 +1,47 @@
+service:
+docker cp ~/src/legal-tools/data.txt mysql8:/media/data.txt
+docker exec -it mysql8 bash
+  db:
+  
+mysql --local_infile=1 -h db -u root -proot -D test_db
+
+CREATE TABLE cases (
+id int not null auto_increment, 
+CASE_CAUSE text,  
+STYLE longtext,
+FILED_DATE date, 
+COURT int, 
+CASE_REGION text, 
+TYPE_ACTION_OFFENSE text, 
+primary key (id)
+);
+
+SHOW columns IN cases;
+
+SHOW GLOBAL VARIABLES LIKE 'local_infile';
+SET GLOBAL local_infile = 'ON';
+SHOW GLOBAL VARIABLES LIKE 'local_infile';
+
+LOAD DATA LOCAL INFILE '/media/data.txt' INTO TABLE cases 
+  FIELDS TERMINATED BY '\t' 
+  LINES TERMINATED BY '\r' 
+  ( CASE_CAUSE, STYLE, @filedDate, COURT, CASE_REGION, TYPE_ACTION_OFFENSE) 
+  set FILED_DATE = FROM_DAYS(@filedDate + 693959);
+
+
+php:
+<?php
+$link = mysqli_connect("127.23.0.2", "root", "secret", "bolt");
+
+if (!$link) {
+    echo "Error: Unable to connect to MySQL." . PHP_EOL;
+    echo "Debugging errno: " . mysqli_connect_errno() . PHP_EOL;
+    echo "Debugging error: " . mysqli_connect_error() . PHP_EOL;
+    exit;
+}
+
+echo "Success: A proper connection to MySQL was made! The my_db database is great." . PHP_EOL;
+echo "Host information: " . mysqli_get_host_info($link) . PHP_EOL;
+
+mysqli_close($link);
+?>
