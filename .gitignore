@@ -2,5 +2,5 @@ HCDC-data-with-tests.xlsm
 ~$HCDC-case-tracker.xlsm
 crimdef-pl/web_dev/db-populate.txt
 data.txt
-./procData
-./rawData
+**/procData
+**/rawData
