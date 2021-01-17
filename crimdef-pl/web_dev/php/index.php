@@ -29,7 +29,7 @@
             "<table>
               <tbody>
                 <tr>
-                  <td>Contact details</td>
+                  <td>Contact details:</td>
                 </tr>;
                 <tr>;
                   <td>" . $row["def_nam"]. "</td>
