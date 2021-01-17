@@ -8,9 +8,9 @@
       <?php
         $varID = $_GET['varID'];
         $host = 'db';  //the name of the mysql service inside the docker file.
-        $user = 'devuser';
-        $password = 'devpass';
-        $db = 'test_db';
+        $user = 'root';
+        $password = 'root';
+        $db = 'crim_db';
       
         $mysqli = new mysqli($host,$user,$password,$db);
       
@@ -19,13 +19,29 @@
             printf("Connect failed: %s\n", mysqli_connect_error());
             exit();
         }
-        $query = "SELECT CASE_CAUSE, STYLE, TYPE_ACTION_OFFENSE FROM cases WHERE id=$varID";
+        $query = "SELECT def_nam, curr_off_lit, def_stnum_stnam, def_cty_st_zip FROM mailer WHERE hbk_id=$varID";
         $result = $mysqli->query($query);
 
         if ($result->num_rows > 0) {
           // output data of each row
           while($row = $result->fetch_assoc()) {
-            echo "Case/Cause#: " . $row["CASE_CAUSE"]. " - " . $row["STYLE"]. ", " . $row["TYPE_ACTION_OFFENSE"]. "<br>";
+            echo "For the case where " . $row["def_nam"]. " has been charged with " . $row["curr_off_lit"]. 
+            "<table>
+              <tbody>
+                <tr>
+                  <td>Contact details</td>
+                </tr>;
+                <tr>;
+                  <td>" . $row["def_nam"]. "</td>
+                </tr>;
+                <tr>;
+                  <td>" . $row["def_stnum_stnam"]. "</td>
+                </tr>
+                <tr>
+                  <td>" . $row["def_cty_st_zip"]. "</td>
+                </tr>
+              </tbody>
+            </table>";
           }
         }
         /* close connection */
