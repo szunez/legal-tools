@@ -1,0 +1,152 @@
+service:
+docker cp ~/src/legal-tools/rawData/*Daily*.txt mysql8:/media/
+docker exec -it mysql8 bash
+
+mysql --local_infile=1 -h db -u root -proot -D crim_db
+db:
+/// important mysql operations ///
+delete t1 from cases t1 inner join cases t2 where t1.id < t2.id AND t1.cas = t2.cas;
+
+ALTER TABLE `cases`  AUTO_INCREMENT = 0;
+
+ALTER TABLE mailer MODIFY def_spn text AFTER hbk_id; /// arrange columns example
+
+SHOW GLOBAL VARIABLES LIKE 'local_infile';
+SET GLOBAL local_infile = 'ON';
+SHOW GLOBAL VARIABLES LIKE 'local_infile';
+//////////////////////////////////
+
+
+/// example of converting date from Excel datetime to mysql datetime ///
+LOAD DATA LOCAL INFILE '/media/2021-test.txt' INTO TABLE cases 
+  FIELDS TERMINATED BY '\t' 
+  LINES TERMINATED BY '\r' 
+  ( CASE_CAUSE, STYLE, @filedDate, COURT, CASE_REGION, TYPE_ACTION_OFFENSE) 
+  set FILED_DATE = FROM_DAYS(@filedDate + 693959);
+////////////////////////////////////////////////////////////////////////
+
+/// build crim_db ///
+CREATE TABLE cases (
+id int not null auto_increment,
+rundate date,
+cdi int,
+cas text,
+fda text,
+ins text,
+cad text,
+crt text,
+cst text,
+dst text,
+bam text,
+curr_off text,
+curr_off_lit text,
+curr_l_d text,
+nda date,
+cnc text,
+rea text,
+def_nam text,
+def_spn text,
+def_rac text,
+def_sex text,
+def_dob date,
+def_stnum text,
+def_stnam text,
+def_cty text,
+def_st text,
+def_zip text,
+aty_nam text,
+aty_spn text,
+aty_coc text,
+aty_coc_lit text,
+def_birthplace text,
+def_uscitizen text,
+primary key (id)
+);
+
+CREATE TABLE mailer (
+  id int not null auto_increment,
+  hbk_id varchar(12),
+  cas text,
+  def_spn text,
+  def_nam text,
+  def_stnum_stnam text,
+  def_cty_st_zip text,
+  curr_off_lit text,
+primary key (id)
+);
+
+LOAD DATA LOCAL INFILE '/media/2021-01-19 CrimFilingsDaily_withHeadings.txt' INTO TABLE cases 
+  FIELDS TERMINATED BY '\t' 
+  LINES TERMINATED BY '\r' 
+  ( rundate, cdi, cas, @fda, ins, cad, crt, cst, dst, bam, curr_off, curr_off_lit, curr_l_d, nda, cnc, rea, def_nam, def_spn, def_rac, def_sex, def_dob, def_stnum, def_stnam, def_cty, def_st, def_zip, aty_nam, aty_spn, aty_coc, aty_coc_lit, def_birthplace, def_uscitizen)
+  set fda = STR_TO_DATE(@fda, '%m%d%y');
+///// example of group_concat all offences for a given defendant
+SELECT
+ def_spn,
+ def_nam,
+ GROUP_CONCAT(cas SEPARATOR ', '),
+ GROUP_CONCAT(curr_off_lit SEPARATOR ', ')
+ FROM mailer 
+ GROUP BY def_spn, def_nam
+  HAVING COUNT(def_spn) > 1;
+/////
+
+//// this worked
+  INSERT INTO mailer(hbk_id, cas, def_spn, def_nam, def_stnum_stnam, def_cty_st_zip, curr_off_lit)
+  SELECT
+    CONCAT(
+      DATE_FORMAT(fda,'%Y%m%d'), MID(cas,5,4)
+    ),
+    cas,
+    def_spn,
+    CONCAT(
+      MID(
+        def_nam,INSTR(def_nam,',') + 1,999
+      ),' ',
+      MID(
+        def_nam,1,INSTR(def_nam,',') -1
+      )
+    ),
+    CONCAT(def_stnum,' ',def_stnam),
+    CONCAT(def_cty,', ',def_st,' ',def_zip),
+    curr_off_lit
+  FROM 
+    cases
+  WHERE 
+    CHAR_LENGTH(def_stnam)>1 
+    AND def_stnam NOT LIKE '%HOMELESS%' 
+    AND def_stnam NOT LIKE '%TRANSIENT%' 
+    AND def_stnam NOT LIKE '%UNK%' 
+    AND aty_nam NOT LIKE 'KHAN, HADEE BABAR' 
+    AND aty_coc_lit NOT LIKE '%HIRED%' 
+    AND cad NOT LIKE '%DISM%' 
+    AND (dst='B' OR dst='O' OR dst='N');
+/////
+///// group concat using a temp table this works! /////
+CREATE TABLE temp
+SELECT
+ GROUP_CONCAT(hbk_id SEPARATOR '|') AS hbk_id, 
+ GROUP_CONCAT(cas SEPARATOR ', ') AS cas, 
+ def_spn, 
+ GROUP_CONCAT(def_nam SEPARATOR '|') AS def_nam, 
+ GROUP_CONCAT(def_stnum_stnam SEPARATOR '|') AS def_stnum_stnam, 
+ GROUP_CONCAT(def_cty_st_zip SEPARATOR '|') AS def_cty_st_zip, 
+ GROUP_CONCAT(curr_off_lit SEPARATOR ', ') AS curr_off_lit
+FROM mailer
+GROUP BY def_spn;
+
+TRUNCATE TABLE mailer;
+
+INSERT INTO mailer(hbk_id, cas, def_spn, def_nam, def_stnum_stnam, def_cty_st_zip, curr_off_lit)
+SELECT 
+ MID(hbk_id, 1, IF(INSTR(hbk_id,'|') > 0, INSTR(hbk_id,'|') - 1, LENGTH(hbk_id))),
+ cas, 
+ def_spn,
+ MID(def_nam, 1, IF(INSTR(def_nam,'|') > 0, INSTR(def_nam,'|') - 1,LENGTH(def_nam))),
+ MID(def_stnum_stnam, 1, IF(INSTR(def_stnum_stnam,'|') > 0, INSTR(def_stnum_stnam,'|') - 1, LENGTH(def_stnum_stnam))),
+ MID(def_cty_st_zip, 1, IF(INSTR(def_cty_st_zip,'|') > 0, INSTR(def_cty_st_zip,'|') - 1, LENGTH(def_cty_st_zip))),
+ curr_off_lit
+FROM temp;
+
+DROP TABLE temp;
+//////////////////////////////////////////////////////////
